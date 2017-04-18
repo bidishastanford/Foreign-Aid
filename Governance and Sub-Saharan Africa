@@ -1,0 +1,6 @@
+ggplot(aid_data, aes(x=Incomegroup, y=Governance,fill=Incomegroup)) +
+geom_boxplot()+
+labs(title="Governance according to Income Groups in Sub-Saharan Africa",x="Income Group",y="Governance")+
+scale_fill_manual(values = c("Light Grey", "Light Blue", "Light Green"))+
+scale_x_discrete(labels=c("High","Low","Medium"))+
+theme(legend.position="none")

@@ -1,6 +1,380 @@
+## Aid Analysis
+###Necessary packages
+
+require(ggplot2)
+require(psych)
+getwd()
+require(stargazer)
+require(corrplot)
+require(sandwich)
+require(plm)
+require(lmtest)
+
+
+###Reading the data
+
+aid_data<-read.csv("dataset.csv")
+View(aid_data)
+
+
+####Exploratory Data Analysis
+###Summary Statistics
+describe(aid_data)
+
+##Correlations
+
+correlations<-cor(aid_data[,c(3,4,5,6,7,8,9,10,11)],use="pairwise", method="spearman")
+stargazer(correlations,type="html")
+
+
+##Visually correlations
+
+corrplot(correlations,method="number",type="lower",tl.cex=.75,tl.col = "black",cl.cex = 0.75,number.cex=0.75)
+correlations<-cor(aid_data[,c(3,4,5,6,7,8,9,10,11)],use="pairwise", method="spearman")
+corrplot(correlations,method="color",type="lower",tl.cex=.75,tl.col = "black",cl.cex = 0.75,number.cex=0.75)
+
+
+
+####Additional Data Analysis
+##Governance per income groups
+
 ggplot(aid_data, aes(x=Incomegroup, y=Governance,fill=Incomegroup)) +
 geom_boxplot()+
 labs(title="Governance according to Income Groups in Sub-Saharan Africa",x="Income Group",y="Governance")+
 scale_fill_manual(values = c("Light Grey", "Light Blue", "Light Green"))+
 scale_x_discrete(labels=c("High","Low","Medium"))+
 theme(legend.position="none")
+
+##Relationship between Aid per capita and corruption
+ggplot(data = aid_data, aes(x =Aidpercapita , y = Corruption))+
+geom_smooth()+
+labs(title="Aid per capita and corruption \n in Sub-Saharan Africa in 1996-2014",x="Aid per capita",y="Corruption")
+
+
+
+ggplot(data = aid_data) + 
+geom_smooth(aes(x =Aidpercapita , y = Governance))+
+labs(title="Aid per capita and governance in Sub-Saharan Africa in 1996-2014",x="Aid per capita",y="Governance")
+
+##Aid and governance according to income groups
+
+ggplot(data = aid_data,mapping = aes(x=Governance, y=Aidpercapita)) + 
+geom_point(mapping = aes(x=Governance, y=Aidpercapita,color=Incomegroup))+
+labs(title="Aid per capita and Governance \n according to income groups \n in Sub-Saharan Africa between 1996-2014",y="Aid per capita",x="Governance")
+
+##Aid per capita according to income groups
+
+ggplot(data = aid_data,aes(x=Incomegroup, y=Aidpercapita))+
+geom_boxplot()+
+scale_x_discrete(labels=c("High","Low","Medium"))+
+labs(title="Aid per capita according to income groups \n in Sub-Saharan Africa between 1996-2014",y="Aid per capita",x="Governance")
+  
+##Democracy according to income groups
+
+ggplot(data = aid_data,aes(x=Incomegroup, y=Democracy))+
+geom_boxplot()+
+scale_x_discrete(labels=c("High","Low","Medium"))+
+labs(title="Democracy according to income groups in Sub-Saharan Africa \n between 1996-2014",y="Democracy capita",x="Income group")
+
+colnames(aid_data)
+ 
+###Regression
+##Checking the data
+
+class(aid_data$GDPpc)
+class(aid_data$Aidpercapita)
+class(aid_data$Governance)
+class(aid_data$Democracy)
+class(aid_data$Corruption)
+class(aid_data$RuleofLAw)
+class(aid_data$Voice)
+class(aid_data$PoliticalStability)
+class(aid_data$GovtEffectiveness)
+class(aid_data$Tradeopenness)
+
+##Should we use logs?
+
+hist(log(aid_data$GDPpc))
+hist(log(aid_data$Aidpercapita))
+hist(log(aid_data$Tradeopenness))
+
+
+##Using logs
+
+laid1<-log(aid_data$Aidpercapita)
+lgdppc1<-log(aid_data$GDPpc)
+lopenness1<-log(aid_data$Tradeopenness)
+
+
+##Let's introduce a new variable
+##Dividing the country groups as high income and low income
+
+aid_data$codedincomegr<-"0"
+colnames(aid_data)
+aid_data$codedincomegr[aid_data$Incomegroup=="H"]<-"1"
+aid_data$codedincomegr[aid_data$Incomegroup=="M"]<-"1"
+aid_data$codedincomegr[aid_data$Incomegroup=="L"]<-"0"
+View(aid_data)
+
+###Plotting Aid as per new income group
+
+ggplot(data = aid_data,aes(x=codedincomegr, y=Aidpercapita))+
+geom_boxplot()+
+scale_x_discrete(labels=c("Low","Medium"))+
+labs(title="Aid per capita according to income groups \n in Sub-Saharan Africa between 1996-2014",y="Aid per capita",x="Income Groups")
+
+
+###Plotting Governance as per new income group
+
+ggplot(data = aid_data,aes(x=codedincomegr, y=governance))+
+geom_boxplot()+
+scale_x_discrete(labels=c("Low","Medium"))+
+labs(title="Aid per capita according to income groups \n in Sub-Saharan Africa between 1996-2014",y="Aid per capita",x="Income Groups")
+
+mean(aid_data$Aidpercapita[aid_data$codedincomegr==0],na.rm=T)
+mean(aid_data$Aidpercapita[aid_data$codedincomegr==1],na.rm=T)
+mean(aid_data$Aidpercapita[aid_data$Incomegroup=="L"])
+Setting up a panel
+colnames(aid_data)
+
+panel_aid <- plm.data(aid_data, c("Country","Year"))
+panel_aid
+View(panel_aid)
+
+
+##Using logs
+
+laid<-log(panel_aid$Aidpercapita)
+summary(laid)
+lgdppc<-log(panel_aid$GDPpc)
+lopenness<-log(panel_aid$Tradeopenness)
+
+
+##Let's introduce a new variable
+##Dividing the country groups as high income and low income
+
+panel_aid$codedincomegr<-"0"
+colnames(panel_aid)
+panel_aid$codedincomegr[panel_aid$Incomegroup=="H"]<-"1"
+panel_aid$codedincomegr[panel_aid$Incomegroup=="M"]<-"1"
+panel_aid$codedincomegr[panel_aid$Incomegroup=="L"]<-"0"
+View(panel_aid)
+describe(panel_aid)
+
+###Simple model Country Fixed Effects
+
+model_cf<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+codedincomegr,data=panel_aid,model="within")
+model_cf
+summary(model_cf)
+
+
+###Simple country effects with only GDP and not income gr
+
+model_cf_gdp<-plm(laid~1+lgdppc+lopenness+Governance+Democracy,data=panel_aid,model="within")
+model_cf_gdp
+summary(model_cf_gdp)
+
+###Country Fixed Effects Interaction with Income Group
+
+model_cf_int<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+Governance*codedincomegr+codedincomegr,data=panel_aid,model="within")
+model_cf_int
+summary(model_cf_int)
+stargazer(model_cf_int,type="html")
+
+
+###Time Fixed Effects Simple Model
+
+model_tf<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+codedincomegr,data=panel_aid,effect="time",model="within")
+model_tf
+summary(model_tf)
+
+
+###Time Fixed Effects with Interaction  Model
+
+
+model_tf_int<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+codedincomegr+Governance*codedincomegr,data=panel_aid,effect="time",model="within")
+model_tf_int
+summary(model_tf_int)
+stargazer(model_tf_int,type="html")
+
+
+###Both ways with Interaction
+
+model_b_int<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+Governance*codedincomegr+codedincomegr,data=panel_aid,effect="twoways",model="within")
+model_b_int
+summary(model_b_int)
+stargazer(model_b_int,type="html")
+
+###Both ways with interaction but without gdp
+
+model_b_int_inc<-plm(laid~1+lopenness+Governance+Democracy+Governance*codedincomegr+codedincomegr,data=panel_aid,effect="twoways",model="within")
+model_b_int_inc
+summary(model_b_int_inc)
+
+###Both ways simple
+
+model_b<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+Governance+codedincomegr,data=panel_aid,effect="twoways",model="within")
+model_b
+summary(model_b)
+
+
+###Both ways simple with GDP only
+##Model 1
+
+model_b_gdp<-plm(laid~1+lgdppc+lopenness+Governance+Democracy+Governance,data=panel_aid,effect="twoways",model="within")
+model_b_gdp
+summary(model_b_gdp)
+
+
+###Interaction with GDP
+
+model_b_int_gdp<-plm(laid~1+lopenness+Governance+Democracy+Governance*gdppc+lgdppc,data=panel_aid,effect="twoways",model="within")
+model_b_int_gdp
+summary(model_b_int_gdp)
+
+
+###Random Effects Model
+
+
+model_ran<-plm(laid~1+lgdppc+lopenness+Governance+Democracy,data=panel_aid,model="random")
+summary(model_ran)
+
+
+
+###Whether to use Both Ways Fixed Effects or Random Effects
+
+phtest(model_b,model_ran)
+
+###Since the P-value is less than 0.05, we can reject the null hypothesis that random effects is preferred.
+
+###Whether to use Country Fixed Effects or Random Effects
+
+phtest(model_cf,model_ran)
+phtest(model_cf_int,model_ran)
+
+###Since the P-value is less than 0.05, we can reject the null hypothesis that random effects is preferred.
+
+###Whether to use Time Fixed Effects or Random Effects
+
+phtest(model_tf,model_ran)
+phtest(model_tf_int,model_ran)
+
+###Since the P-value is less than 0.05, we can reject the null hypothesis that random effects is preferred.
+
+
+
+###Let us check for heteroskedasticity in the models
+
+bptest(model_tf)
+bptest(model_cf_int)
+bptest(model_tf_int)
+bptest(model_cf)
+bptest(model_cf_gdp)
+
+###The p value is less than 0.05. Hence, we conclude that the models have heteroskedasticity.
+
+###Let us check for autocorrelation
+
+dwtest(lm(laid1~lgdppc1+lopenness1+Governance+Democracy+codedincomegr+Governance*codedincomegr+factor(Country),data=aid_data))
+
+###There is no autocorrelation in the Country Fixed effects model with Interaction
+
+
+dwtest(lm(laid1~lgdppc1+lopenness1+Governance+Democracy+codedincomegr+Governance*codedincomegr+factor(Year),data=aid_data))
+
+
+###There is no autocorrelation in the Time Fixed Effects Model with Interaction.
+
+dwtest(lm(laid1~1+lgdppc1+lopenness1+Governance+Democracy+factor(Year),data=aid_data))
+
+###There is no autocorrelation in the simple Time Fixed Effects Model.
+
+dwtest(lm(laid1~1+lgdppc1+lopenness1+Governance+Democracy+factor(Country),data=aid_data))
+
+###There is no autocorrelation in the simple Time Fixed Effects Model.
+
+dwtest(lm(laid1~1+lgdppc1+lopenness1+Governance+Democracy+factor(Country),data=aid_data))
+
+###Robust SEs
+
+
+SE_model_cf_int<-coeftest(model_cf_int, vcovHC(model_cf_int, type="HC0",cluster="group"))
+SE_model_cf_int
+stargazer(SE_model_cf_int,type="html")
+
+SE_model_tf_int<-coeftest(model_tf_int, vcovHC(model_tf_int, type="HC0",cluster="group"))
+SE_model_tf_int
+stargazer(SE_model_tf_int,type="html")
+
+SE_model_b_int<-coeftest(model_b_int, vcovHC(model_b_int, type="HC0",cluster="group"))
+SE_model_b_int
+summary(SE_model_b_int)
+stargazer(SE_model_b_int,type="html")
+
+SE_model_b<-coeftest(model_b, vcovHC(model_b, type="HC0",cluster="group"))
+SE_model_b
+stargazer(SE_model_b,type="html")
+
+SE_model_b_gdp<-coeftest(model_b_gdp, vcovHC(model_b, type="HC0",cluster="group"))
+SE_model_b_gdp
+stargazer(SE_model_b_gdp,type="html")
+
+SE_model_cf<-coeftest(model_cf, vcovHC(model_cf, type="HC0",cluster="group"))
+SE_model_cf
+stargazer(SE_model_cf,type="html")
+
+SE_model_tf<-coeftest(model_tf, vcovHC(model_tf, type="HC0",cluster="group"))
+SE_model_tf
+stargazer(SE_model_tf,type="html")
+
+SE_model_cf_gdp<-coeftest(model_cf_gdp, vcovHC(model_cf_gdp, type="HC0",cluster="group"))
+SE_model_cf_gdp
+stargazer(SE_model_cf_gdp,type="html")
+
+SE_model_b_int_inc<-coeftest(model_b_int_inc,vcovHC(model_b_int_inc, type="HC0",cluster="group"))
+SE_model_b_int_inc
+stargazer(SE_model_b_int_inc,type="html")
+
+SE_model_b_gdp<-coeftest(model_b_gdp,vcovHC(model_b_gdp, type="HC0",cluster="group"))
+SE_model_b_gdp
+stargazer(SE_model_b_gdp,type="html")
+
+SE_model_b_int_gdp<-coeftest(model_b_int_gdp,vcovHC(model_b_int_gdp, type="HC0",cluster="group"))
+stargazer(SE_model_b_int_gdp,type="html")
+colnames(aid_data)
+
+###Principal Component Analysis
+
+Governance Indicators
+
+
+pca<-aid_data[,c("Corruption", "GovtEffectiveness", "RuleofLAw","Regulatory")]
+
+prin_comp <- prcomp(na.omit(pca),na.rm=T, scale.=T,center=TRUE)
+stargazer(prin_comp$rotation, type="html")
+names(prin_comp)
+pr.var=prin_comp$sdev^2
+biplot(prin_comp,scale=0)
+pve=pr.var/sum(pr.var)
+pve
+plot(pve, xlab="Principal Component",ylab="Proportion of Variance Explained")
+plot(pve, xlab="Principal Component",ylab="Proportion of Variance Explained",type="b")
+plot(cumsum(pve),xlab="Principal Component",ylab="Cumulative Proportion of Variance Explained",type="b")
+prin_comp$rotation
+
+Democracy Indicators
+
+colnames(aid_data)
+pca_demo<-aid_data[,c("PoliticalStability", "Voice")]
+
+prin_comp_demo<- prcomp(na.omit(pca_demo), scale.=T,center=TRUE)
+names(prin_comp_demo)
+pr.var.dem=prin_comp_demo$sdev^2
+biplot(prin_comp_demo,scale=0)
+pve.dem=pr.var.dem/sum(pr.var.dem)
+pve.dem
+plot(pve.dem, xlab="Principal Component",ylab="Proportion of Variance Explained")
+plot(pve.dem, xlab="Principal Component",ylab="Proportion of Variance Explained",type="b")
+plot(cumsum(pve.dem),xlab="Principal Component",ylab="Cumulative Proportion of Variance Explained",type="b")
+prin_comp$rotation
+
